@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -28,11 +28,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const navigation = [
-  // {
-  //   name: "Dashboard",
-  //   href: "/",
-  //   icon: LayoutDashboard,
-  // },
   {
     name: "Students",
     href: "/students",
@@ -48,26 +43,43 @@ const navigation = [
     href: "/timetable",
     icon: Table,
   },
-  // {
-  //   name: "Exams & Results",
-  //   href: "/exams",
-  //   icon: GraduationCap,
-  // },
   {
     name: "Assignments",
     href: "/assignments",
     icon: BookOpen,
   },
-  // {
-  //   name: "Communication",
-  //   href: "/communication",
-  //   icon: MessageSquare,
-  // },
 ];
 
 export function DashboardHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [staff, setStaff] = useState(null);
   const pathname = usePathname();
+
+  // Load staff data from localStorage
+  useEffect(() => {
+    const loadStaffData = () => {
+      try {
+        const stored = localStorage.getItem("staffData");
+        if (stored) {
+          const data = JSON.parse(stored);
+          setStaff(data);
+        }
+      } catch (error) {
+        console.error("Failed to parse staffData from localStorage", error);
+      }
+    };
+
+    loadStaffData();
+    // Optional: Listen for storage changes (if updated elsewhere)
+    window.addEventListener("storage", loadStaffData);
+    return () => window.removeEventListener("storage", loadStaffData);
+  }, []);
+
+  const fullName = staff
+    ? `${staff.firstName || ""} ${staff.lastName || ""}`.trim()
+    : "Staff User";
+
+  const subtitle = staff?.emailAddress || staff?.employeeId || "Teacher";
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-card/80 backdrop-blur-sm">
@@ -131,34 +143,46 @@ export function DashboardHeader() {
               >
                 <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center">
                   <span className="text-xs font-medium text-accent-foreground">
-                    JD
+                    {staff
+                      ? `${staff.firstName?.[0] || ""}${staff.lastName?.[0] || ""}`.toUpperCase()
+                      : "SU"}
                   </span>
                 </div>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-56 bg-card border-border"
-            >
+            <DropdownMenuContent align="end" className="w-64 bg-card border-border">
               <DropdownMenuLabel>
-                <div>
-                  <p className="font-medium text-foreground">John Doe</p>
-                  <p className="text-xs text-muted-foreground">
-                    Mathematics Teacher
+                <div className="flex flex-col space-y-1">
+                  <p className="font-semibold text-foreground leading-none">
+                    {fullName}
                   </p>
+                  <p className="text-xs text-muted-foreground">
+                    {subtitle}
+                  </p>
+                  {staff?.employeeId && (
+                    <p className="text-xs text-muted-foreground/80">
+                      ID: {staff.employeeId}
+                    </p>
+                  )}
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-border" />
-              <DropdownMenuItem className="text-foreground focus:bg-muted cursor-pointer">
+
+              {/* Optional: Add profile/settings if needed */}
+              {/* <DropdownMenuItem className="cursor-pointer">
                 <Settings className="h-4 w-4 mr-2" />
-                Profile Settings
+                Settings
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-foreground focus:bg-muted cursor-pointer">
-                <Settings className="h-4 w-4 mr-2" />
-                Preferences
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-border" />
-              <DropdownMenuItem className="text-foreground focus:bg-muted cursor-pointer">
+              <DropdownMenuSeparator className="bg-border" /> */}
+
+              <DropdownMenuItem
+                className="text-foreground focus:bg-muted cursor-pointer"
+                onClick={() => {
+                  localStorage.removeItem("staffData");
+                  localStorage.removeItem("staffToken");
+                  window.location.href = "/login"; // or your logout route
+                }}
+              >
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </DropdownMenuItem>

@@ -15,8 +15,17 @@ import {
 } from "lucide-react"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+
+
 
 export default function DashboardPage() {
+   const router = useRouter();
+
+  useEffect(() => {
+    router.push("/students"); // jaha redirect karna ho
+  }, [router]);
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <DashboardHeader />
