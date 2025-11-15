@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   BookOpen,
   X,
@@ -34,8 +35,6 @@ export default function AssignmentsPage() {
 
   const [selectedClassFilter, setSelectedClassFilter] = useState("");
   const [selectedSectionFilter, setSelectedSectionFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
 
   const [formData, setFormData] = useState({
     title: "",
@@ -45,13 +44,14 @@ export default function AssignmentsPage() {
     description: "",
   });
 
+  // ✅ Get teacher data
   const token =
     typeof window !== "undefined" ? localStorage.getItem("staffToken") : null;
   const decoded = token ? jwtDecode(token) : {};
   const institutionId = decoded.InstitutionId;
   const currentTeacherId = decoded.id;
 
-  // ✅ Fetch assignments (flat structure)
+  // ✅ Fetch assignments (filtered by institution)
   const fetchAssignments = async () => {
     try {
       const res = await axios.get(
@@ -73,28 +73,28 @@ export default function AssignmentsPage() {
     }
   };
 
-  // ✅ Fetch subject, classes, and sections (for dropdowns)
+  // ✅ Fetch subject allocations (class + section + subject)
   const fetchSubjectAllocations = async () => {
     try {
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}api/subject-allocation`,
+        `${process.env.NEXT_PUBLIC_API_URL}api/staff/portal/subject-allocation`,
         { params: { institutionId, id: currentTeacherId } }
       );
 
       if (res.data.success && res.data.data) {
         const { subject, classes } = res.data.data;
 
-        // Set subject
+        // Subject
         if (subject) setTeacherSubject(subject);
 
-        // Extract unique classes
+        // Classes
         const uniqueClasses = classes.map((cls) => ({
           id: cls.classId,
           name: cls.className,
         }));
         setAvailableClasses(uniqueClasses);
 
-        // Flatten sections
+        // Sections
         const allSections = classes.flatMap((cls) =>
           cls.sections.map((sec) => ({
             classId: cls.classId,
@@ -109,7 +109,7 @@ export default function AssignmentsPage() {
     }
   };
 
-  // ✅ Fetch both on load
+  // ✅ Load all data
   useEffect(() => {
     const loadData = async () => {
       if (!institutionId || !currentTeacherId) return;
@@ -120,7 +120,7 @@ export default function AssignmentsPage() {
     loadData();
   }, [institutionId, currentTeacherId]);
 
-  // ✅ Filter logic: Class, Section, Date
+  // ✅ Filter logic
   useEffect(() => {
     let filtered = assignments;
 
@@ -132,22 +132,10 @@ export default function AssignmentsPage() {
       filtered = filtered.filter((a) => a.sectionName === selectedSectionFilter);
     }
 
-    if (dateFrom || dateTo) {
-      filtered = filtered.filter((a) => {
-        const created = a.createdAt;
-        const from = dateFrom ? new Date(dateFrom) : null;
-        const to = dateTo ? new Date(dateTo) : null;
-        const afterFrom = !from || created >= from;
-        const beforeTo =
-          !to || created <= new Date(to.setHours(23, 59, 59, 999));
-        return afterFrom && beforeTo;
-      });
-    }
-
     setFilteredAssignments(filtered);
-  }, [selectedClassFilter, selectedSectionFilter, dateFrom, dateTo, assignments]);
+  }, [selectedClassFilter, selectedSectionFilter, assignments]);
 
-  // ✅ Create assignment
+  // ✅ Create new assignment
   const handleCreateAssignment = async () => {
     if (
       !formData.title ||
@@ -190,7 +178,7 @@ export default function AssignmentsPage() {
         payload
       );
       if (res.data.success) {
-        alert("Assignment created successfully!");
+        alert("✅ Assignment created successfully!");
         setCreateDialog(false);
         setFormData({
           title: "",
@@ -203,7 +191,7 @@ export default function AssignmentsPage() {
       }
     } catch (error) {
       console.error("Failed to create assignment:", error);
-      alert("Failed to create assignment.");
+      alert("❌ Failed to create assignment.");
     }
   };
 
@@ -211,11 +199,9 @@ export default function AssignmentsPage() {
   const clearFilters = () => {
     setSelectedClassFilter("");
     setSelectedSectionFilter("");
-    setDateFrom("");
-    setDateTo("");
   };
 
-  // ✅ Filtered section list (based on class)
+  // Filter sections for selected class
   const filteredSections = selectedClassFilter
     ? availableSections.filter(
         (s) =>
@@ -224,7 +210,7 @@ export default function AssignmentsPage() {
       )
     : [];
 
-  // ✅ Loading UI
+  // ✅ Loading
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -239,7 +225,7 @@ export default function AssignmentsPage() {
     );
   }
 
-  // ✅ No Subject Assigned
+  // ✅ No Subject
   if (!teacherSubject) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -257,166 +243,253 @@ export default function AssignmentsPage() {
     );
   }
 
-  // ✅ UI
+  // ✅ MAIN UI
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <DashboardHeader />
 
       <main className="flex-1 overflow-auto">
-        <div className="p-4 md:p-6 max-w-7xl mx-auto w-full">
-          <div className="space-y-6">
-            {/* Header + Filters */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold">Assignments</h1>
-                <p className="text-sm sm:text-base text-muted-foreground">
-                  Manage assignments for{" "}
-                  <strong>{teacherSubject?.name}</strong>
-                </p>
+        <div className="p-4 md:p-6 max-w-7xl mx-auto w-full space-y-6">
+          {/* Header + Filters */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold">Assignments</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">
+                Manage assignments for{" "}
+                <strong>{teacherSubject?.name}</strong>
+              </p>
+            </div>
+
+            <div className="flex gap-3 items-center flex-wrap">
+              {/* Class Filter */}
+              <div className="relative">
+                <select
+                  value={selectedClassFilter}
+                  onChange={(e) => {
+                    setSelectedClassFilter(e.target.value);
+                    setSelectedSectionFilter("");
+                  }}
+                  className="w-40 px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-accent outline-none"
+                >
+                  <option value="">All Classes</option>
+                  {availableClasses.map((cls) => (
+                    <option key={cls.id} value={cls.name}>
+                      {cls.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               </div>
 
-              {/* Filters */}
-              <div className="flex gap-3 items-center flex-wrap">
-                {/* Class Filter */}
-                <div className="relative">
-                  <select
-                    value={selectedClassFilter}
-                    onChange={(e) => {
-                      setSelectedClassFilter(e.target.value);
-                      setSelectedSectionFilter(""); // reset section when class changes
-                    }}
-                    className="w-40 px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-accent focus:ring-offset-2 outline-none appearance-none"
-                  >
-                    <option value="">All Classes</option>
-                    {availableClasses.map((cls) => (
-                      <option key={cls.id} value={cls.name}>
-                        {cls.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                </div>
+              {/* Section Filter */}
+              <div className="relative">
+                <select
+                  value={selectedSectionFilter}
+                  onChange={(e) => setSelectedSectionFilter(e.target.value)}
+                  className="w-36 px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-accent outline-none"
+                  disabled={!selectedClassFilter}
+                >
+                  <option value="">All Sections</option>
+                  {filteredSections.map((sec) => (
+                    <option key={sec.sectionId} value={sec.sectionName}>
+                      {sec.sectionName}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              </div>
 
-                {/* Section Filter */}
-                <div className="relative">
-                  <select
-                    value={selectedSectionFilter}
-                    onChange={(e) => setSelectedSectionFilter(e.target.value)}
-                    className="w-36 px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-accent focus:ring-offset-2 outline-none appearance-none"
-                    disabled={!selectedClassFilter}
-                  >
-                    <option value="">All Sections</option>
-                    {filteredSections.map((sec) => (
+              {(selectedClassFilter || selectedSectionFilter) && (
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  Clear
+                </Button>
+              )}
+
+              <Button
+                className="bg-white text-gray-800 border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 shadow-sm"
+                onClick={() => setCreateDialog(true)}
+              >
+                <Plus className="h-4 w-4" />
+                New Assignment
+              </Button>
+            </div>
+          </div>
+
+          {/* Assignment Cards */}
+          {filteredAssignments.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredAssignments.map((assignment) => (
+                <Card
+                  key={assignment._id}
+                  className="hover:shadow-md transition-shadow border rounded-xl"
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-accent" />
+                        {assignment.title}
+                      </CardTitle>
+                      <Badge variant="outline" className="text-xs">
+                        Due: {assignment.dueDate.toLocaleDateString()}
+                      </Badge>
+                    </div>
+                    <CardDescription className="text-xs mt-1 text-muted-foreground">
+                      {assignment.className} - {assignment.sectionName} •{" "}
+                      {assignment.subject}
+                      <span className="ml-2 text-xs italic">
+                        Created: {assignment.createdAt.toLocaleDateString()}
+                      </span>
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent>
+                    {assignment.description ? (
+                      <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+                        {assignment.description}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">
+                        No description
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 border rounded-xl bg-muted/20">
+              <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+              <p className="text-lg font-medium text-muted-foreground">
+                No assignments found
+              </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Try adjusting filters or create a new assignment
+              </p>
+              <Button
+                className="bg-white text-gray-800 border border-gray-300 hover:bg-gray-50"
+                onClick={() => setCreateDialog(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Assignment
+              </Button>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* ✅ Create Assignment Modal */}
+      {createDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md shadow-lg border rounded-xl">
+            <CardHeader className="flex justify-between items-center border-b pb-3">
+              <CardTitle>Create Assignment</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setCreateDialog(false)}
+                className="h-8 w-8"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+
+            <CardContent className="space-y-3 pt-4">
+              <div>
+                <Label>Class *</Label>
+                <select
+                  value={formData.class}
+                  onChange={(e) =>
+                    setFormData({ ...formData, class: e.target.value, section: "" })
+                  }
+                  className="w-full border rounded-md p-2"
+                >
+                  <option value="">Select class...</option>
+                  {availableClasses.map((cls) => (
+                    <option key={cls.id} value={cls.name}>
+                      {cls.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <Label>Section *</Label>
+                <select
+                  value={formData.section}
+                  onChange={(e) =>
+                    setFormData({ ...formData, section: e.target.value })
+                  }
+                  className="w-full border rounded-md p-2"
+                  disabled={!formData.class}
+                >
+                  <option value="">Select section...</option>
+                  {availableSections
+                    .filter(
+                      (s) =>
+                        s.classId ===
+                        availableClasses.find((c) => c.name === formData.class)?.id
+                    )
+                    .map((sec) => (
                       <option key={sec.sectionId} value={sec.sectionName}>
                         {sec.sectionName}
                       </option>
                     ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                </div>
+                </select>
+              </div>
 
-                {/* Date Filters */}
-                <div className="relative">
-                  <Input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-40 pl-8 text-sm"
-                  />
-                  <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                </div>
+              <div>
+                <Label>Title *</Label>
+                <Input
+                  placeholder="e.g., Chapter 5 Exercises"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                />
+              </div>
 
-                <div className="relative">
-                  <Input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-40 pl-8 text-sm"
-                  />
-                  <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                </div>
+              <div>
+                <Label>Due Date *</Label>
+                <Input
+                  type="date"
+                  value={formData.dueDate}
+                  onChange={(e) =>
+                    setFormData({ ...formData, dueDate: e.target.value })
+                  }
+                />
+              </div>
 
-                {(selectedClassFilter ||
-                  selectedSectionFilter ||
-                  dateFrom ||
-                  dateTo) && (
-                  <Button variant="outline" size="sm" onClick={clearFilters}>
-                    Clear
-                  </Button>
-                )}
+              <div>
+                <Label>Description</Label>
+                <textarea
+                  rows={3}
+                  placeholder="Enter details..."
+                  className="w-full border rounded-md p-2 resize-none"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                />
+              </div>
 
+              <div className="flex justify-end gap-2 pt-3 border-t mt-4">
                 <Button
-                  className="bg-white text-gray-800 border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 shadow-sm"
-                  onClick={() => setCreateDialog(true)}
+                  variant="outline"
+                  onClick={() => setCreateDialog(false)}
                 >
-                  <Plus className="h-4 w-4" />
-                  New Assignment
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-accent text-white"
+                  onClick={handleCreateAssignment}
+                >
+                  Create
                 </Button>
               </div>
-            </div>
-
-            {/* Assignment Cards */}
-            {filteredAssignments.length > 0 ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredAssignments.map((assignment) => (
-                  <Card
-                    key={assignment._id}
-                    className="hover:shadow-md transition-shadow border rounded-xl"
-                  >
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base font-semibold flex items-center gap-2">
-                          <BookOpen className="h-4 w-4 text-accent" />
-                          {assignment.title}
-                        </CardTitle>
-                        <Badge variant="outline" className="text-xs">
-                          Due: {assignment.dueDate.toLocaleDateString()}
-                        </Badge>
-                      </div>
-                      <CardDescription className="text-xs mt-1 text-muted-foreground">
-                        {assignment.className} - {assignment.sectionName} •{" "}
-                        {assignment.subject}
-                        <span className="ml-2 text-xs italic">
-                          Created: {assignment.createdAt.toLocaleDateString()}
-                        </span>
-                      </CardDescription>
-                    </CardHeader>
-
-                    <CardContent>
-                      {assignment.description ? (
-                        <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
-                          {assignment.description}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground italic">
-                          No description
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-16 border rounded-xl bg-muted/20">
-                <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                <p className="text-lg font-medium text-muted-foreground">
-                  No assignments found
-                </p>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Try adjusting filters or create a new assignment
-                </p>
-                <Button
-                  className="bg-white text-gray-800 border border-gray-300 hover:bg-gray-50"
-                  onClick={() => setCreateDialog(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Assignment
-                </Button>
-              </div>
-            )}
-          </div>
+            </CardContent>
+          </Card>
         </div>
-      </main>
+      )}
     </div>
   );
 }
