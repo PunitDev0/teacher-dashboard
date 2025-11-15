@@ -12,7 +12,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   BookOpen,
   X,
@@ -25,18 +24,18 @@ import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 
 export default function AssignmentsPage() {
-  const [assignments, setAssignments] = useState([]);
-  const [filteredAssignments, setFilteredAssignments] = useState([]);
-  const [createDialog, setCreateDialog] = useState(false);
   const [loading, setLoading] = useState(true);
   const [teacherSubject, setTeacherSubject] = useState(null);
   const [availableClasses, setAvailableClasses] = useState([]);
   const [availableSections, setAvailableSections] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [filteredAssignments, setFilteredAssignments] = useState([]);
+  const [createDialog, setCreateDialog] = useState(false);
 
-  // Filter states
   const [selectedClassFilter, setSelectedClassFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState(""); // Created date from
-  const [dateTo, setDateTo] = useState("");     // Created date to
+  const [selectedSectionFilter, setSelectedSectionFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const [formData, setFormData] = useState({
     title: "",
@@ -46,82 +45,24 @@ export default function AssignmentsPage() {
     description: "",
   });
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("staffToken") : null;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("staffToken") : null;
   const decoded = token ? jwtDecode(token) : {};
   const institutionId = decoded.InstitutionId;
   const currentTeacherId = decoded.id;
 
-  // Fetch allocations + assignments
-  useEffect(() => {
-    const fetchAllData = async () => {
-      if (!institutionId || !currentTeacherId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // 1. Subject allocations
-        const allocRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}api/subject-allocation`
-          , {
-          params: { institutionId },
-        });
-
-        if (!allocRes.data.success || !allocRes.data.data?.length) {
-          throw new Error("No subject allocations found");
-        }
-
-        const teacherAllocations = allocRes.data.data.filter(
-          (alloc) => alloc.teacherId?._id === currentTeacherId
-        );
-
-        if (!teacherAllocations.length) {
-          throw new Error("No classes or sections assigned to you.");
-        }
-
-        const subjectInfo = teacherAllocations[0].subjectId;
-        setTeacherSubject(subjectInfo);
-
-        const uniqueClasses = [
-          ...new Map(
-            teacherAllocations.map((a) => [a.classId._id, a.classId.name])
-          ).entries(),
-        ].map(([id, name]) => ({ id, name }));
-        setAvailableClasses(uniqueClasses);
-
-        const sections = teacherAllocations.map((a) => ({
-          classId: a.classId._id,
-          sectionId: a.sectionId._id,
-          sectionName: a.sectionName || "Unknown",
-        }));
-        setAvailableSections(sections);
-
-        // 2. Fetch assignments
-        await fetchAssignments();
-      } catch (error) {
-        console.error("Failed to load data:", error);
-        alert(error.message || "Failed to load data.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAllData();
-  }, [institutionId, currentTeacherId]);
-
+  // ✅ Fetch assignments (flat structure)
   const fetchAssignments = async () => {
     try {
-      const res = await axios.get(`
-        ${process.env.NEXT_PUBLIC_API_URL}api/assignments`
-        
-        , {
-        params: { institutionId },
-      });
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}api/assignments`,
+        { params: { institutionId } }
+      );
 
-      if (res.data.success) {
-        const data = res.data.data.map(a => ({
+      if (res.data.success && Array.isArray(res.data.data)) {
+        const data = res.data.data.map((a) => ({
           ...a,
-          createdAt: new Date(a.createdAt), // ensure Date object
+          createdAt: new Date(a.createdAt),
           dueDate: new Date(a.dueDate),
         }));
         setAssignments(data);
@@ -132,33 +73,81 @@ export default function AssignmentsPage() {
     }
   };
 
-  // Filter logic: Class + Created Date Range
+  // ✅ Fetch subject, classes, and sections (for dropdowns)
+  const fetchSubjectAllocations = async () => {
+    try {
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}api/subject-allocation`,
+        { params: { institutionId, id: currentTeacherId } }
+      );
+
+      if (res.data.success && res.data.data) {
+        const { subject, classes } = res.data.data;
+
+        // Set subject
+        if (subject) setTeacherSubject(subject);
+
+        // Extract unique classes
+        const uniqueClasses = classes.map((cls) => ({
+          id: cls.classId,
+          name: cls.className,
+        }));
+        setAvailableClasses(uniqueClasses);
+
+        // Flatten sections
+        const allSections = classes.flatMap((cls) =>
+          cls.sections.map((sec) => ({
+            classId: cls.classId,
+            sectionId: sec.sectionId,
+            sectionName: sec.sectionName,
+          }))
+        );
+        setAvailableSections(allSections);
+      }
+    } catch (error) {
+      console.error("Failed to fetch subject allocations:", error);
+    }
+  };
+
+  // ✅ Fetch both on load
+  useEffect(() => {
+    const loadData = async () => {
+      if (!institutionId || !currentTeacherId) return;
+      setLoading(true);
+      await Promise.all([fetchAssignments(), fetchSubjectAllocations()]);
+      setLoading(false);
+    };
+    loadData();
+  }, [institutionId, currentTeacherId]);
+
+  // ✅ Filter logic: Class, Section, Date
   useEffect(() => {
     let filtered = assignments;
 
-    // Filter by class
     if (selectedClassFilter) {
       filtered = filtered.filter((a) => a.className === selectedClassFilter);
     }
 
-    // Filter by createdAt (date range)
+    if (selectedSectionFilter) {
+      filtered = filtered.filter((a) => a.sectionName === selectedSectionFilter);
+    }
+
     if (dateFrom || dateTo) {
       filtered = filtered.filter((a) => {
         const created = a.createdAt;
         const from = dateFrom ? new Date(dateFrom) : null;
         const to = dateTo ? new Date(dateTo) : null;
-
         const afterFrom = !from || created >= from;
-        const beforeTo = !to || created <= new Date(to.setHours(23, 59, 59, 999));
-
+        const beforeTo =
+          !to || created <= new Date(to.setHours(23, 59, 59, 999));
         return afterFrom && beforeTo;
       });
     }
 
     setFilteredAssignments(filtered);
-  }, [selectedClassFilter, dateFrom, dateTo, assignments]);
+  }, [selectedClassFilter, selectedSectionFilter, dateFrom, dateTo, assignments]);
 
-  // Create assignment
+  // ✅ Create assignment
   const handleCreateAssignment = async () => {
     if (
       !formData.title ||
@@ -170,7 +159,9 @@ export default function AssignmentsPage() {
       return;
     }
 
-    const selectedClass = availableClasses.find((c) => c.name === formData.class);
+    const selectedClass = availableClasses.find(
+      (c) => c.name === formData.class
+    );
     const selectedSection = availableSections.find(
       (s) =>
         s.classId.toString() === selectedClass.id &&
@@ -185,7 +176,7 @@ export default function AssignmentsPage() {
       className: selectedClass.name,
       sectionId: selectedSection.sectionId,
       sectionName: selectedSection.sectionName,
-      subject: teacherSubject.name,
+      subject: teacherSubject?.name || "Unknown",
       dueDate: formData.dueDate,
       total: 0,
       submitted: 0,
@@ -194,11 +185,12 @@ export default function AssignmentsPage() {
     };
 
     try {
-      const res = await axios.post(`
-        ${process.env.NEXT_PUBLIC_API_URL}api/assignments`
-        , payload);
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}api/assignments`,
+        payload
+      );
       if (res.data.success) {
-        await fetchAssignments();
+        alert("Assignment created successfully!");
         setCreateDialog(false);
         setFormData({
           title: "",
@@ -207,6 +199,7 @@ export default function AssignmentsPage() {
           dueDate: "",
           description: "",
         });
+        await fetchAssignments();
       }
     } catch (error) {
       console.error("Failed to create assignment:", error);
@@ -214,14 +207,24 @@ export default function AssignmentsPage() {
     }
   };
 
-  // Clear all filters
+  // ✅ Reset filters
   const clearFilters = () => {
     setSelectedClassFilter("");
+    setSelectedSectionFilter("");
     setDateFrom("");
     setDateTo("");
   };
 
-  // Loading
+  // ✅ Filtered section list (based on class)
+  const filteredSections = selectedClassFilter
+    ? availableSections.filter(
+        (s) =>
+          s.classId ===
+          availableClasses.find((c) => c.name === selectedClassFilter)?.id
+      )
+    : [];
+
+  // ✅ Loading UI
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -229,14 +232,14 @@ export default function AssignmentsPage() {
         <main className="flex-1 flex items-center justify-center">
           <div className="flex items-center gap-2">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Loading your data...</span>
+            <span>Loading assignments...</span>
           </div>
         </main>
       </div>
     );
   }
 
-  // No Subject
+  // ✅ No Subject Assigned
   if (!teacherSubject) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -254,6 +257,7 @@ export default function AssignmentsPage() {
     );
   }
 
+  // ✅ UI
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <DashboardHeader />
@@ -266,17 +270,22 @@ export default function AssignmentsPage() {
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold">Assignments</h1>
                 <p className="text-sm sm:text-base text-muted-foreground">
-                  Manage assignments for <strong>{teacherSubject?.name}</strong>
+                  Manage assignments for{" "}
+                  <strong>{teacherSubject?.name}</strong>
                 </p>
               </div>
 
+              {/* Filters */}
               <div className="flex gap-3 items-center flex-wrap">
                 {/* Class Filter */}
                 <div className="relative">
                   <select
                     value={selectedClassFilter}
-                    onChange={(e) => setSelectedClassFilter(e.target.value)}
-                    className="w-48 px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-accent focus:ring-offset-2 outline-none appearance-none"
+                    onChange={(e) => {
+                      setSelectedClassFilter(e.target.value);
+                      setSelectedSectionFilter(""); // reset section when class changes
+                    }}
+                    className="w-40 px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-accent focus:ring-offset-2 outline-none appearance-none"
                   >
                     <option value="">All Classes</option>
                     {availableClasses.map((cls) => (
@@ -288,38 +297,50 @@ export default function AssignmentsPage() {
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 </div>
 
-                {/* Created Date From */}
+                {/* Section Filter */}
+                <div className="relative">
+                  <select
+                    value={selectedSectionFilter}
+                    onChange={(e) => setSelectedSectionFilter(e.target.value)}
+                    className="w-36 px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-accent focus:ring-offset-2 outline-none appearance-none"
+                    disabled={!selectedClassFilter}
+                  >
+                    <option value="">All Sections</option>
+                    {filteredSections.map((sec) => (
+                      <option key={sec.sectionId} value={sec.sectionName}>
+                        {sec.sectionName}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                </div>
+
+                {/* Date Filters */}
                 <div className="relative">
                   <Input
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
-                    placeholder="From"
                     className="w-40 pl-8 text-sm"
                   />
                   <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 </div>
 
-                {/* Created Date To */}
                 <div className="relative">
                   <Input
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    placeholder="To"
                     className="w-40 pl-8 text-sm"
                   />
                   <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 </div>
 
-                {/* Clear Filters */}
-                {(selectedClassFilter || dateFrom || dateTo) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearFilters}
-                    className="text-xs"
-                  >
+                {(selectedClassFilter ||
+                  selectedSectionFilter ||
+                  dateFrom ||
+                  dateTo) && (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
                     Clear
                   </Button>
                 )}
@@ -334,7 +355,7 @@ export default function AssignmentsPage() {
               </div>
             </div>
 
-            {/* Assignments Grid */}
+            {/* Assignment Cards */}
             {filteredAssignments.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredAssignments.map((assignment) => (
@@ -353,7 +374,8 @@ export default function AssignmentsPage() {
                         </Badge>
                       </div>
                       <CardDescription className="text-xs mt-1 text-muted-foreground">
-                        {assignment.className} - {assignment.sectionName} • {assignment.subject}
+                        {assignment.className} - {assignment.sectionName} •{" "}
+                        {assignment.subject}
                         <span className="ml-2 text-xs italic">
                           Created: {assignment.createdAt.toLocaleDateString()}
                         </span>
@@ -395,156 +417,6 @@ export default function AssignmentsPage() {
           </div>
         </div>
       </main>
-
-      {/* Create Assignment Modal */}
-      {createDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <Card className="w-full max-w-md my-4 shadow-lg border rounded-xl">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b">
-              <CardTitle className="text-lg font-semibold">
-                Create New Assignment
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setCreateDialog(false);
-                  setFormData({
-                    title: "",
-                    class: "",
-                    section: "",
-                    dueDate: "",
-                    description: "",
-                  });
-                }}
-                className="h-8 w-8 text-gray-700 hover:bg-gray-100"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-
-            <CardContent className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label>Subject</Label>
-                <Input value={teacherSubject?.name || ""} disabled className="bg-muted" />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Class *</Label>
-                <select
-                  value={formData.class}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      class: e.target.value,
-                      section: "",
-                    })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-accent focus:ring-offset-2 outline-none"
-                >
-                  <option value="">Select a class...</option>
-                  {availableClasses.map((cls) => (
-                    <option key={cls.id} value={cls.name}>
-                      {cls.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Section *</Label>
-                <select
-                  value={formData.section}
-                  onChange={(e) =>
-                    setFormData({ ...formData, section: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-accent focus:ring-offset-2 outline-none"
-                  disabled={!formData.class}
-                >
-                  <option value="">Select a section...</option>
-                  {availableSections
-                    .filter(
-                      (sec) =>
-                        sec.classId.toString() ===
-                        availableClasses.find((c) => c.name === formData.class)?.id
-                    )
-                    .map((sec) => (
-                      <option key={sec.sectionId} value={sec.sectionName}>
-                        {sec.sectionName}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Title *</Label>
-                <Input
-                  placeholder="e.g., Chapter 5 Exercises"
-                  value={formData.title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Due Date *</Label>
-                <Input
-                  type="date"
-                  value={formData.dueDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, dueDate: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <textarea
-                  placeholder="Enter assignment details..."
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg text-sm resize-none focus:ring-2 focus:ring-accent outline-none"
-                  rows="3"
-                />
-              </div>
-
-              <div className="flex gap-2 border-t pt-4">
-                <Button
-                  variant="outline"
-                  className="flex-1 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-                  onClick={() => {
-                    setCreateDialog(false);
-                    setFormData({
-                      title: "",
-                      class: "",
-                      section: "",
-                      dueDate: "",
-                      description: "",
-                    });
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1 bg-white text-gray-800 border border-gray-300 hover:bg-gray-50"
-                  onClick={handleCreateAssignment}
-                  disabled={
-                    !formData.class ||
-                    !formData.section ||
-                    !formData.title ||
-                    !formData.dueDate
-                  }
-                >
-                  Create
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }
