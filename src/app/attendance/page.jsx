@@ -1,16 +1,19 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef, useMemo } from "react"
-import { DashboardHeader } from "@/components/dashboard-header"
+import { useState, useMemo, useEffect } from "react";
+import Layout from "@/components/Layout/Layout";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -18,730 +21,549 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+} from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Calendar as CalendarComponent } from "@/components/ui/calendar"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
-import { format } from "date-fns"
-import { UserCheck, Calendar, BarChart3, AlertCircle, Loader2, Edit3, Filter, X, CalendarIcon } from "lucide-react"
-import axios from "axios"
-import { jwtDecode } from "jwt-decode"
+  UserCheck,
+  Calendar,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Search,
+  Filter,
+  Sparkles,
+  ChevronRight,
+  ChevronLeft,
+  Send,
+  GraduationCap,
+  ShieldCheck,
+  Building,
+} from "lucide-react";
+
+const ASSIGNED_CLASS_TEACHER = {
+  className: "Grade 10",
+  sectionName: "Section A",
+  display: "Grade 10 - Section A",
+  room: "Room 201",
+  academicYear: "2026-2027",
+  totalStudents: 20,
+};
+
+const DEMO_CLASS_TEACHER_STUDENTS = [
+  { id: "std-10a-01", name: "Aakash Gupta", rollNo: "01", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10101" },
+  { id: "std-10a-02", name: "Aarav Sharma", rollNo: "02", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10102" },
+  { id: "std-10a-03", name: "Aditi Rao", rollNo: "03", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10103" },
+  { id: "std-10a-04", name: "Ananya Bansal", rollNo: "04", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10104" },
+  { id: "std-10a-05", name: "Aryan Singh", rollNo: "05", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10105" },
+  { id: "std-10a-06", name: "Bhavya Joshi", rollNo: "06", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10106" },
+  { id: "std-10a-07", name: "Devika Pillai", rollNo: "07", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10107" },
+  { id: "std-10a-08", name: "Divyansh Roy", rollNo: "08", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10108" },
+  { id: "std-10a-09", name: "Ishaan Chawla", rollNo: "09", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10109" },
+  { id: "std-10a-10", name: "Kavya Kulkarni", rollNo: "10", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10110" },
+  { id: "std-10a-11", name: "Meera Sen", rollNo: "11", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10111" },
+  { id: "std-10a-12", name: "Mihir Nair", rollNo: "12", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10112" },
+  { id: "std-10a-13", name: "Navya Saxena", rollNo: "13", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10113" },
+  { id: "std-10a-14", name: "Pranav Jain", rollNo: "14", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10114" },
+  { id: "std-10a-15", name: "Riya Aggarwal", rollNo: "15", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10115" },
+  { id: "std-10a-16", name: "Rohan Varma", rollNo: "16", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10116" },
+  { id: "std-10a-17", name: "Samarth Bhat", rollNo: "17", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10117" },
+  { id: "std-10a-18", name: "Shreya Menon", rollNo: "18", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10118" },
+  { id: "std-10a-19", name: "Tarun Chopra", rollNo: "19", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10119" },
+  { id: "std-10a-20", name: "Yash Vardhan", rollNo: "20", className: "Grade 10", sectionName: "Section A", parentPhone: "+91 98765 10120" },
+];
+
+const INITIAL_ATTENDANCE = {
+  "std-10a-01": { status: "present", time: "07:51 AM", reason: "" },
+  "std-10a-02": { status: "present", time: "07:54 AM", reason: "" },
+  "std-10a-03": { status: "present", time: "07:52 AM", reason: "" },
+  "std-10a-04": { status: "late", time: "08:14 AM", reason: "Bus delayed near Ring Road" },
+  "std-10a-05": { status: "present", time: "07:49 AM", reason: "" },
+  "std-10a-06": { status: "present", time: "07:55 AM", reason: "" },
+  "std-10a-07": { status: "absent", time: "-", reason: "Viral fever - Parent notified" },
+  "std-10a-08": { status: "present", time: "07:48 AM", reason: "" },
+  "std-10a-09": { status: "present", time: "07:56 AM", reason: "" },
+  "std-10a-10": { status: "present", time: "07:53 AM", reason: "" },
+  "std-10a-11": { status: "present", time: "07:50 AM", reason: "" },
+  "std-10a-12": { status: "present", time: "07:57 AM", reason: "" },
+  "std-10a-13": { status: "late", time: "08:18 AM", reason: "Metro signal delay" },
+  "std-10a-14": { status: "present", time: "07:52 AM", reason: "" },
+  "std-10a-15": { status: "present", time: "07:54 AM", reason: "" },
+  "std-10a-16": { status: "present", time: "07:50 AM", reason: "" },
+  "std-10a-17": { status: "absent", time: "-", reason: "Out of station - Medical leave" },
+  "std-10a-18": { status: "present", time: "07:55 AM", reason: "" },
+  "std-10a-19": { status: "present", time: "07:49 AM", reason: "" },
+  "std-10a-20": { status: "present", time: "07:53 AM", reason: "" },
+};
+
+const PAGE_SIZE = 10;
 
 export default function AttendancePage() {
-  const [students, setStudents] = useState([])
-  const [attendanceData, setAttendanceData] = useState({})
-  const [markedHistory, setMarkedHistory] = useState([])
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [selectedStudent, setSelectedStudent] = useState(null)
-  const [selectedStatus, setSelectedStatus] = useState("")
-  const [reason, setReason] = useState("")
-  const [showMarked, setShowMarked] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [selectedDate, setSelectedDate] = useState(new Date()) // Filter date
-  const [userData, setUserData] = useState({})
-  const reasonInputRef = useRef(null)
-
-  // Filter States
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [classFilter, setClassFilter] = useState("all")
-
-  const decodeToken = (token) => {
-    try {
-      return jwtDecode(token)
-    } catch (error) {
-      console.error("Invalid token:", error)
-      return null
-    }
-  }
+  const [students, setStudents] = useState(DEMO_CLASS_TEACHER_STUDENTS);
+  const [attendance, setAttendance] = useState(INITIAL_ATTENDANCE);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [teacherName, setTeacherName] = useState("Dr. Sarah Jenkins");
 
   useEffect(() => {
-    const token = localStorage.getItem("staffToken")
-    if (token) {
-      const decoded = decodeToken(token)
-      setUserData(decoded || {})
-    }
-    fetchStudentsAndAttendance()
-  }, [selectedDate]) // Re-fetch when date changes
-
-  // Auto-focus reason input
-  useEffect(() => {
-    if (isDialogOpen && reasonInputRef.current) {
-      setTimeout(() => reasonInputRef.current?.focus(), 100)
-    }
-  }, [isDialogOpen])
-
-  const fetchStudentsAndAttendance = async () => {
     try {
-      setLoading(true)
-      setError("")
-
-      const token = localStorage.getItem("staffToken")
-      if (!token) {
-        setError("No token found. Please login again.")
-        setLoading(false)
-        return
+      const stored = localStorage.getItem("staffData");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const name = `${parsed.firstName || ""} ${parsed.lastName || ""}`.trim();
+        if (name) setTeacherName(name);
       }
+    } catch (e) {}
+  }, []);
 
-      const { institutionId } = decodeToken(token) || {}
-      const formattedDate = format(selectedDate, "yyyy-MM-dd")
+  // Absentee Dialog
+  const [activeStudentForReason, setActiveStudentForReason] = useState(null);
+  const [reasonCategory, setReasonCategory] = useState("Medical Leave");
+  const [reasonNotes, setReasonNotes] = useState("");
 
-      // Fetch students
-      const studentsRes = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}api/staff/portal/students`
-        , {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-
-      if (!studentsRes.data.success) {
-        setError(studentsRes.data.message || "Failed to load students.")
-        setLoading(false)
-        return
-      }
-
-      const fetchedStudents = studentsRes.data.students || []
-
-      // Fetch attendance for selected date
-      const attendancePromises = fetchedStudents.map((student) =>
-        axios
-          .get(`
-            ${process.env.NEXT_PUBLIC_API_URL}api/staff/portal/students/attendance`
-            , {
-            params: {
-              studentId: student.id,
-              date: formattedDate,
-              sectionId: student.sectionId,
-              institutionId,
-            },
-            headers: { Authorization: `Bearer ${token}` },
-          })
-          .catch(() => ({ data: { success: false, data: [] } }))
-      )
-
-      const attendanceResults = await Promise.all(attendancePromises)
-      const attendanceMap = {}
-
-      attendanceResults.forEach((res, index) => {
-        const student = fetchedStudents[index]
-        if (res.data.success && res.data.data.length > 0) {
-          const record = res.data.data[0]
-          attendanceMap[student.id] = {
-            status: record.status.toLowerCase(),
-            time: new Date(record.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            marked: true,
-          }
-        } else {
-          attendanceMap[student.id] = { status: "unmarked", time: "-", marked: false }
-        }
-      })
-
-      setStudents(fetchedStudents)
-      setAttendanceData(attendanceMap)
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to load data.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const markAttendance = async (studentId, status) => {
-    const token = localStorage.getItem("staffToken")
-    const student = students.find((s) => s.id === studentId)
-    const { id: staffId, InstitutionId } = userData
-    const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    const formattedDate = format(selectedDate, "yyyy-MM-dd")
-
-    try {
-      const payload = {
-        studentId,
-        classId: student.classGradeId || student.classId,
-        sectionId: student.sectionId,
-        date: formattedDate,
-        status: status.charAt(0).toUpperCase() + status.slice(1),
-        remarks: "",
-        markedBy: staffId,
-        InstitutionId,
-      }
-
-      await axios.post(`
-        ${process.env.NEXT_PUBLIC_API_URL}api/staff/portal/students/attendance`
-        , payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-
-      setAttendanceData((prev) => ({
-        ...prev,
-        [studentId]: { status, time: status === "present" ? now : "-", marked: true },
-      }))
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to mark attendance")
-    }
-  }
-
-  const openChangeDialog = (student) => {
-    setSelectedStudent(student)
-    setSelectedStatus("")
-    setReason("")
-    setIsDialogOpen(true)
-  }
-
-  const handleChangeAttendance = async () => {
-    if (!selectedStatus) {
-      alert("Please select a new status.")
-      return
-    }
-    if (!reason.trim()) {
-      alert("Reason is required to change attendance.")
-      return
+  const handleMarkStatus = (studentId, status) => {
+    if (status === "absent") {
+      const student = students.find((s) => s.id === studentId);
+      setActiveStudentForReason(student);
+      setReasonCategory("Medical / Sickness");
+      setReasonNotes(attendance[studentId]?.reason || "");
+      return;
     }
 
-    const student = selectedStudent
-    const previous = attendanceData[student.id]
-    const { id: staffId, InstitutionId } = userData
-    const token = localStorage.getItem("staffToken")
-    const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    const formattedDate = format(selectedDate, "yyyy-MM-dd")
+    setAttendance((prev) => ({
+      ...prev,
+      [studentId]: {
+        status,
+        time: status === "present" ? "07:55 AM" : status === "late" ? "08:15 AM" : "-",
+        reason: "",
+      },
+    }));
+  };
 
-    try {
-      const payload = {
-        studentId: student.id,
-        classId: student.classGradeId || student.classId,
-        sectionId: student.sectionId,
-        date: formattedDate,
-        status: selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1),
-        remarks: reason,
-        markedBy: staffId,
-        InstitutionId,
-      }
+  const handleSaveAbsentReason = (e) => {
+    e.preventDefault();
+    if (!activeStudentForReason) return;
 
-      await axios.post(`
-        ${process.env.NEXT_PUBLIC_API_URL}api/staff/portal/students/attendance`
-        , payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    setAttendance((prev) => ({
+      ...prev,
+      [activeStudentForReason.id]: {
+        status: "absent",
+        time: "-",
+        reason: `${reasonCategory}: ${reasonNotes || "Parent confirmed"}`,
+      },
+    }));
 
-      setAttendanceData((prev) => ({
-        ...prev,
-        [student.id]: {
-          status: selectedStatus,
-          time: selectedStatus === "present" ? now : "-",
-          marked: true,
-        },
-      }))
+    setActiveStudentForReason(null);
+    setReasonNotes("");
+  };
 
-      setMarkedHistory((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          studentId: student.id,
-          studentName: student.name,
-          previousStatus: previous.status,
-          newStatus: selectedStatus,
-          reason,
-          timestamp: new Date().toLocaleString(),
-        },
-      ])
+  const handleMarkAllPresent = () => {
+    const updated = { ...attendance };
+    filteredStudents.forEach((st) => {
+      updated[st.id] = {
+        status: "present",
+        time: "07:55 AM",
+        reason: "",
+      };
+    });
+    setAttendance(updated);
+  };
 
-      setIsDialogOpen(false)
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to update attendance")
-    }
-  }
-
-  // Extract unique classes
-  const classes = useMemo(() => {
-    const unique = [...new Set(students.map(s => s.className))].filter(Boolean)
-    return unique.sort()
-  }, [students])
-
-  // Filtered students
   const filteredStudents = useMemo(() => {
-    const dateStr = format(selectedDate, "yyyy-MM-dd")
-    return students.filter((student) => {
-      const att = attendanceData[student.id] || { status: "unmarked" }
-
-      // Search
+    return students.filter((s) => {
       const matchesSearch =
-        student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.rollNumber.toLowerCase().includes(searchQuery.toLowerCase())
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.rollNo.includes(searchQuery);
+      const studentStatus = attendance[s.id]?.status || "unmarked";
+      const matchesStatus = selectedStatus === "all" || studentStatus === selectedStatus;
+      return matchesSearch && matchesStatus;
+    });
+  }, [students, searchQuery, selectedStatus, attendance]);
 
-      // Status
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "unmarked" && !att.marked) ||
-        att.status === statusFilter
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedStatus]);
 
-      // Class
-      const matchesClass = classFilter === "all" || student.className === classFilter
+  const totalPages = Math.ceil(filteredStudents.length / PAGE_SIZE) || 1;
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredStudents.slice(start, start + PAGE_SIZE);
+  }, [filteredStudents, currentPage]);
 
-      return matchesSearch && matchesStatus && matchesClass
-    })
-  }, [students, attendanceData, searchQuery, statusFilter, classFilter, selectedDate])
-
-  // Stats for filtered data
-  const markedStudents = filteredStudents.filter(s => attendanceData[s.id]?.marked)
-  const unmarkedStudents = filteredStudents.filter(s => !attendanceData[s.id]?.marked)
-  const presentCount = markedStudents.filter(s => attendanceData[s.id]?.status === "present").length
-  const lateCount = markedStudents.filter(s => attendanceData[s.id]?.status === "late").length
-  const absentCount = markedStudents.filter(s => attendanceData[s.id]?.status === "absent").length
-
-  const clearFilters = () => {
-    setSearchQuery("")
-    setStatusFilter("all")
-    setClassFilter("all")
-  }
-
-  if (loading) {
-    return (
-      <div className="flex flex-col min-h-screen bg-background">
-        <DashboardHeader />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Loading attendance...</span>
-          </div>
-        </main>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col min-h-screen bg-background">
-        <DashboardHeader />
-        <main className="flex-1 flex items-center justify-center p-4">
-          <Card className="max-w-md w-full">
-            <CardHeader>
-              <CardTitle className="text-red-600">Error</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">{error}</p>
-              <Button onClick={fetchStudentsAndAttendance} className="mt-4 w-full">
-                Retry
-              </Button>
-            </CardContent>
-          </Card>
-        </main>
-      </div>
-    )
-  }
+  const presentCount = Object.values(attendance).filter((a) => a.status === "present").length;
+  const absentCount = Object.values(attendance).filter((a) => a.status === "absent").length;
+  const lateCount = Object.values(attendance).filter((a) => a.status === "late").length;
+  const attendancePercent = Math.round((presentCount / students.length) * 100);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <DashboardHeader />
+    <Layout>
+      <div className="space-y-4 w-full pb-8 min-w-0">
+        
+        {/* ── HEADER ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-normal bg-[#FEF5E7] text-[#B45309] border border-[#FDE68A]">
+                <Sparkles className="w-3.5 h-3.5 text-[#F5A623]" />
+                Designated Class Teacher Register
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-normal text-[#1F1E1D] tracking-tight flex items-center gap-2">
+              <UserCheck className="h-6 w-6 text-[#1F1E1D]" />
+              Classroom Attendance — {ASSIGNED_CLASS_TEACHER.display}
+            </h1>
+            <p className="text-xs font-normal text-[#8E8A80] mt-0.5">
+              Live morning roll-call, absentee reason tracking, and automated parent SMS notifications
+            </p>
+          </div>
 
-      <main className="flex-1 overflow-auto">
-        <div className="p-4 md:p-6 max-w-7xl mx-auto w-full">
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-bold">Attendance</h1>
-                <p className="text-muted-foreground">
-                  {format(selectedDate, "EEEE, MMMM d, yyyy")}
-                </p>
+          <div className="flex items-center gap-2">
+            <Input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="w-34 h-8.5 text-xs rounded-full bg-white border-[#E0DBD0] text-[#1F1E1D]"
+            />
+            <Button
+              onClick={handleMarkAllPresent}
+              className="bg-[#1F1E1D] hover:bg-[#2F2D2B] text-white rounded-full text-xs font-normal h-8.5 shadow-xs flex items-center gap-1.5 px-4 cursor-pointer"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#F5A623]" />
+              1-Click Mark All Present
+            </Button>
+          </div>
+        </div>
+
+        {/* ── ASSIGNED CLASS TEACHER BANNER ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-[#ECE7DE] shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#1F1E1D] text-[#F5A623] flex items-center justify-center shrink-0 shadow-xs">
+              <GraduationCap className="w-5.5 h-5.5 text-[#F5A623]" />
+            </div>
+            <div className="text-left">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-[#1F1E1D]">
+                  {ASSIGNED_CLASS_TEACHER.display}
+                </span>
+                <span className="text-[10.5px] px-2.5 py-0.5 rounded-full bg-[#E8F5E9] text-[#2D6A4F] border border-[#C8E6C9] font-medium">
+                  Your Assigned Class
+                </span>
               </div>
-
-              {/* Date Picker */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4" />
-                    {format(selectedDate, "PPP")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <CalendarComponent
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => setSelectedDate(date || new Date())}
-                    className="rounded-md border"
-                  />
-                </PopoverContent>
-              </Popover>
+              <p className="text-xs text-[#8E8A80] mt-0.5">
+                Class Teacher: <strong className="text-[#1F1E1D] font-medium">{teacherName}</strong> • {ASSIGNED_CLASS_TEACHER.room} • Academic Session {ASSIGNED_CLASS_TEACHER.academicYear}
+              </p>
             </div>
+          </div>
 
-            {/* Filters */}
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    Filters
-                  </CardTitle>
-                  {(searchQuery || statusFilter !== "all" || classFilter !== "all") && (
-                    <Button variant="ghost" size="sm" onClick={clearFilters}>
-                      <X className="h-4 w-4 mr-1" />
-                      Clear
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <Label>Search</Label>
-                    <Input
-                      placeholder="Name or Roll No."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label>Status</Label>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="present">Present</SelectItem>
-                        <SelectItem value="late">Late</SelectItem>
-                        <SelectItem value="absent">Absent</SelectItem>
-                        <SelectItem value="unmarked">Unmarked</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Class</Label>
-                    <Select value={classFilter} onValueChange={setClassFilter}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Classes</SelectItem>
-                        {classes.map((cls) => (
-                          <SelectItem key={cls} value={cls}>
-                            {cls}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="flex items-center gap-2 text-xs text-[#6E6A60] bg-[#FBF9F4] px-3.5 py-2 rounded-xl border border-[#ECE7DE] self-start sm:self-auto">
+            <ShieldCheck className="w-4 h-4 text-[#2D6A4F] shrink-0" />
+            <span>Attendance access authorized for Class Teacher only</span>
+          </div>
+        </div>
 
-            {/* Stats */}
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Marked</CardTitle>
-                  <UserCheck className="h-4 w-4 text-blue-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{markedStudents.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {filteredStudents.length > 0
-                      ? ((markedStudents.length / filteredStudents.length) * 100).toFixed(0)
-                      : 0}% of filtered
-                  </p>
-                </CardContent>
-              </Card>
+        {/* ── STAT STRIP ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="rounded-2xl border-[#ECE7DE] shadow-xs p-3.5 bg-white text-left">
+            <span className="text-[11.5px] font-normal text-[#8E8A80]">Total Enrolled</span>
+            <p className="text-xl font-normal text-[#1F1E1D] mt-0.5">
+              {students.length} <span className="text-xs text-[#8E8A80]">Students</span>
+            </p>
+          </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Present</CardTitle>
-                  <UserCheck className="h-4 w-4 text-green-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{presentCount}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {filteredStudents.length > 0
-                      ? ((presentCount / filteredStudents.length) * 100).toFixed(0)
-                      : 0}% of filtered
-                  </p>
-                </CardContent>
-              </Card>
+          <Card className="rounded-2xl border-[#ECE7DE] shadow-xs p-3.5 bg-white text-left">
+            <span className="text-[11.5px] font-normal text-[#2D6A4F]">Present Today</span>
+            <p className="text-xl font-normal text-[#2D6A4F] mt-0.5">
+              {presentCount} <span className="text-xs text-[#2D6A4F]/70 font-normal">({attendancePercent}%)</span>
+            </p>
+          </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Late</CardTitle>
-                  <Calendar className="h-4 w-4 text-yellow-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{lateCount}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {filteredStudents.length > 0
-                      ? ((lateCount / filteredStudents.length) * 100).toFixed(0)
-                      : 0}% of filtered
-                  </p>
-                </CardContent>
-              </Card>
+          <Card className="rounded-2xl border-[#ECE7DE] shadow-xs p-3.5 bg-white text-left">
+            <span className="text-[11.5px] font-normal text-rose-600">Absentees</span>
+            <p className="text-xl font-normal text-rose-600 mt-0.5">
+              {absentCount} <span className="text-xs text-rose-600/70 font-normal">Recorded</span>
+            </p>
+          </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Absent</CardTitle>
-                  <BarChart3 className="h-4 w-4 text-red-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{absentCount}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {filteredStudents.length > 0
-                      ? ((absentCount / filteredStudents.length) * 100).toFixed(0)
-                      : 0}% of filtered
-                  </p>
-                </CardContent>
-              </Card>
+          <Card className="rounded-2xl border-[#ECE7DE] shadow-xs p-3.5 bg-white text-left">
+            <span className="text-[11.5px] font-normal text-[#B45309]">Late Arrivals</span>
+            <p className="text-xl font-normal text-[#B45309] mt-0.5">
+              {lateCount} <span className="text-xs text-[#B45309]/70 font-normal">Grace</span>
+            </p>
+          </Card>
+        </div>
+
+        {/* ── FILTERS & ACTIVE CLASS LOCK ── */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#ECE7DE] shadow-xs">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-0.5">
+            <div className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-[#1F1E1D] text-white border border-[#1F1E1D] shadow-xs flex items-center gap-1.5 shrink-0">
+              <GraduationCap className="w-3.5 h-3.5 text-[#F5A623]" />
+              <span>{ASSIGNED_CLASS_TEACHER.display} (Your Class • {students.length} Students)</span>
             </div>
+          </div>
 
-            {/* Tabs */}
-            <div className="flex gap-2 border-b">
-              <Button
-                variant={!showMarked ? "default" : "ghost"}
-                onClick={() => setShowMarked(false)}
-                className="pb-3"
-              >
-                Unmarked ({unmarkedStudents.length})
-              </Button>
-              <Button
-                variant={showMarked ? "default" : "ghost"}
-                onClick={() => setShowMarked(true)}
-                className="pb-3"
-              >
-                Marked ({markedStudents.length})
-              </Button>
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="h-8.5 px-3 rounded-full border border-[#E0DBD0] bg-[#FBF9F4] text-xs text-[#1F1E1D] outline-none"
+            >
+              <option value="all">All Status</option>
+              <option value="present">Present Only</option>
+              <option value="absent">Absent Only</option>
+              <option value="late">Late Only</option>
+            </select>
+
+            <div className="relative w-44 sm:w-52">
+              <Search className="w-3.5 h-3.5 text-[#8E8A80] absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                placeholder="Search name, roll..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8.5 h-8.5 text-xs bg-[#FBF9F4] border-[#E0DBD0] rounded-full text-[#1F1E1D]"
+              />
             </div>
+          </div>
+        </div>
 
-            {/* Unmarked Students */}
-            {!showMarked && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Unmarked Students</CardTitle>
-                  <CardDescription>Click to mark attendance</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {unmarkedStudents.length === 0 ? (
-                    <p className="text-center py-8 text-muted-foreground">
-                      {filteredStudents.length === 0 ? "No students match filters." : "All students marked!"}
-                    </p>
-                  ) : (
-                    unmarkedStudents.map((student) => (
-                      <div
-                        key={student.id}
-                        className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted quizzes/50 transition-colors"
-                      >
-                        <div>
-                          <p className="font-semibold">{student.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {student.rollNumber} • {student.className}
-                          </p>
+        {/* ── HIGH-DENSITY ATTENDANCE TABLE ── */}
+        <div className="bg-white rounded-2xl border border-[#ECE7DE] shadow-xs overflow-hidden">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-left text-xs min-w-[700px]">
+              <thead>
+                <tr className="bg-[#F8F6F1] border-b border-[#ECE7DE] text-[#78746B] font-normal uppercase tracking-wider">
+                  <th className="py-2.5 px-3.5 w-16">Roll No</th>
+                  <th className="py-2.5 px-3.5">Student Name</th>
+                  <th className="py-2.5 px-3.5">Class &amp; Section</th>
+                  <th className="py-2.5 px-3.5 text-center">Attendance Status</th>
+                  <th className="py-2.5 px-3.5">Marked Time</th>
+                  <th className="py-2.5 px-3.5">Reason / Notes</th>
+                  <th className="py-2.5 px-3.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#ECE7DE] text-[#1F1E1D]">
+                {paginatedStudents.map((st) => {
+                  const record = attendance[st.id] || { status: "unmarked", time: "-", reason: "" };
+                  const isPresent = record.status === "present";
+                  const isAbsent = record.status === "absent";
+                  const isLate = record.status === "late";
+
+                  return (
+                    <tr key={st.id} className="hover:bg-[#FAF8F4] transition-colors">
+                      <td className="py-2.5 px-3.5 font-mono font-medium text-[#1F1E1D]">
+                        #{st.rollNo}
+                      </td>
+
+                      <td className="py-2.5 px-3.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6.5 h-6.5 rounded-full bg-[#EFECE5] text-[#1F1E1D] flex items-center justify-center font-normal text-xs shrink-0">
+                            {st.name.charAt(0)}
+                          </div>
+                          <span className="font-normal text-[#1F1E1D]">{st.name}</span>
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                            onClick={() => markAttendance(student.id, "present")}
+                      </td>
+
+                      <td className="py-2.5 px-3.5">
+                        <Badge variant="outline" className="text-[10.5px] font-normal border-[#E0DBD0] text-[#6E6A60] bg-[#FBF9F4]">
+                          {st.className} ({st.sectionName})
+                        </Badge>
+                      </td>
+
+                      <td className="py-2.5 px-3.5 text-center">
+                        <div className="inline-flex items-center p-0.5 rounded-full border border-[#ECE7DE] bg-[#FBF9F4] gap-1">
+                          <button
+                            onClick={() => handleMarkStatus(st.id, "present")}
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-normal transition-all cursor-pointer ${
+                              isPresent
+                                ? "bg-[#2D6A4F] text-white shadow-2xs"
+                                : "text-[#6E6A60] hover:text-[#2D6A4F]"
+                            }`}
                           >
                             Present
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => markAttendance(student.id, "late")}>
-                            Late
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="bg-red-600 hover:bg-red-700"
-                            onClick={() => markAttendance(student.id, "absent")}
+                          </button>
+                          <button
+                            onClick={() => handleMarkStatus(st.id, "absent")}
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-normal transition-all cursor-pointer ${
+                              isAbsent
+                                ? "bg-rose-600 text-white shadow-2xs"
+                                : "text-[#6E6A60] hover:text-rose-700"
+                            }`}
                           >
                             Absent
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Marked Students */}
-            {showMarked && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Marked Students</CardTitle>
-                  <CardDescription>Click "Change" to update with reason</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {markedStudents.length === 0 ? (
-                    <p className="text-center py-8 text-muted-foreground">
-                      {filteredStudents.length === 0 ? "No students match filters." : "No students marked yet."}
-                    </p>
-                  ) : (
-                    markedStudents.map((student) => {
-                      const att = attendanceData[student.id]
-                      return (
-                        <div
-                          key={student.id}
-                          className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="flex-1">
-                            <p className="font-semibold">{student.name}</p>
-                            <div className="flex items-center gap-3 mt-1">
-                              <Badge
-                                variant={
-                                  att.status === "present"
-                                    ? "default"
-                                    : att.status === "late"
-                                      ? "secondary"
-                                      : "destructive"
-                                }
-                                className="capitalize"
-                              >
-                                {att.status}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">{att.time}</span>
-                            </div>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex items-center gap-1"
-                            onClick={() => openChangeDialog(student)}
+                          </button>
+                          <button
+                            onClick={() => handleMarkStatus(st.id, "late")}
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-normal transition-all cursor-pointer ${
+                              isLate
+                                ? "bg-[#F5A623] text-white shadow-2xs"
+                                : "text-[#6E6A60] hover:text-[#B45309]"
+                            }`}
                           >
-                            <Edit3 className="h-3.5 w-3.5" />
-                            Change
-                          </Button>
+                            Late
+                          </button>
                         </div>
-                      )
-                    })
-                  )}
-                </CardContent>
-              </Card>
-            )}
+                      </td>
 
-            {/* Change Dialog */}
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogContent className="sm:max-w-md">
+                      <td className="py-2.5 px-3.5 font-mono text-[11px] text-[#8E8A80]">
+                        {record.time}
+                      </td>
+
+                      <td className="py-2.5 px-3.5">
+                        {record.reason ? (
+                          <span
+                            onClick={() => {
+                              setActiveStudentForReason(st);
+                              setReasonCategory(record.reason.split(":")[0] || "Medical");
+                              setReasonNotes(record.reason.split(":")[1]?.trim() || "");
+                            }}
+                            className="inline-flex items-center gap-1 text-[10.5px] text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 cursor-pointer hover:bg-rose-100 max-w-[200px] truncate"
+                          >
+                            <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                            <span className="truncate">{record.reason}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[#C6C0B4] text-xs">—</span>
+                        )}
+                      </td>
+
+                      <td className="py-2.5 px-3.5 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setActiveStudentForReason(st);
+                            setReasonCategory("Reason Note");
+                            setReasonNotes(record.reason || "");
+                          }}
+                          className="text-[#1F1E1D] hover:bg-[#EFECE5] text-xs font-normal h-7 px-2.5 rounded-full"
+                        >
+                          Note
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-2.5 bg-[#F8F6F1] border-t border-[#ECE7DE] text-xs text-[#6E6A60]">
+            <div>
+              Showing{" "}
+              <span className="font-medium text-[#1F1E1D]">
+                {filteredStudents.length > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0}
+              </span>{" "}
+              to{" "}
+              <span className="font-medium text-[#1F1E1D]">
+                {Math.min(currentPage * PAGE_SIZE, filteredStudents.length)}
+              </span>{" "}
+              of <span className="font-medium text-[#1F1E1D]">{filteredStudents.length}</span> records
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="h-7 px-2.5 rounded-full text-xs border-[#E0DBD0] text-[#1F1E1D] hover:bg-white disabled:opacity-40"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 mr-0.5" /> Prev
+              </Button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                <button
+                  key={pg}
+                  onClick={() => setCurrentPage(pg)}
+                  className={`w-7 h-7 rounded-full text-xs transition-colors ${
+                    currentPage === pg
+                      ? "bg-[#1F1E1D] text-white font-medium"
+                      : "text-[#6E6A60] hover:bg-[#EFECE5]"
+                  }`}
+                >
+                  {pg}
+                </button>
+              ))}
+
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="h-7 px-2.5 rounded-full text-xs border-[#E0DBD0] text-[#1F1E1D] hover:bg-white disabled:opacity-40"
+              >
+                Next <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── ABSENTEE REASON MODAL ── */}
+        <Dialog open={!!activeStudentForReason} onOpenChange={() => setActiveStudentForReason(null)}>
+          <DialogContent className="sm:max-w-[460px] rounded-2xl text-left">
+            {activeStudentForReason && (
+              <>
                 <DialogHeader>
-                  <DialogTitle>Change Attendance</DialogTitle>
-                  <DialogDescription>
-                    Updating attendance for <strong>{selectedStudent?.name}</strong>
+                  <DialogTitle className="text-base font-normal text-gray-900 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600" />
+                    Record Absence • {activeStudentForReason.name}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-gray-400">
+                    Roll #{activeStudentForReason.rollNo} • {activeStudentForReason.className}
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-5 py-4">
-                  {selectedStudent && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Current:</span>
-                      <Badge
-                        variant={
-                          attendanceData[selectedStudent.id]?.status === "present"
-                            ? "default"
-                            : attendanceData[selectedStudent.id]?.status === "late"
-                              ? "secondary"
-                              : "destructive"
-                        }
-                        className="capitalize"
-                      >
-                        {attendanceData[selectedStudent.id]?.status}
-                      </Badge>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label>New Status</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {["present", "late", "absent"].map((status) => (
-                        <Button
-                          key={status}
-                          size="sm"
-                          variant="outline"
-                          className={cn(
-                            "capitalize border-2 transition-all duration-200",
-                            selectedStatus === status
-                              ? status === "present"
-                                ? "bg-green-600 border-green-700 text-white"
-                                : status === "absent"
-                                  ? "bg-red-600 border-red-700 text-white"
-                                  : "bg-yellow-600 border-yellow-700 text-white"
-                              : status === "present"
-                                ? "border-green-600 text-green-700 hover:bg-green-100"
-                                : status === "absent"
-                                  ? "border-red-600 text-red-700 hover:bg-red-100"
-                                  : "border-yellow-600 text-yellow-700 hover:bg-yellow-100"
-                          )}
-                          onClick={() => setSelectedStatus(status)}
-                        >
-                          {status}
-                        </Button>
-                      ))}
-                    </div>
+                <form onSubmit={handleSaveAbsentReason} className="space-y-3 pt-1">
+                  <div>
+                    <Label className="text-xs text-gray-700 font-normal">Absence Reason</Label>
+                    <select
+                      value={reasonCategory}
+                      onChange={(e) => setReasonCategory(e.target.value)}
+                      className="w-full text-xs rounded-xl border border-gray-200 bg-white h-8.5 px-3 mt-1 outline-none"
+                    >
+                      <option value="Medical / Sickness">Medical / Health Sickness</option>
+                      <option value="Family Function">Family Event / Function</option>
+                      <option value="Uninformed Absence">Uninformed / Absent Without Notice</option>
+                      <option value="Transport / Bus Delay">Transport / Bus Breakdown</option>
+                    </select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="reason">
-                      Reason for Change <span className="text-red-500">*</span>
-                    </Label>
+                  <div>
+                    <Label className="text-xs text-gray-700 font-normal">Remarks</Label>
                     <Textarea
-                      id="reason"
-                      ref={reasonInputRef}
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      placeholder="e.g., Student was marked absent by mistake..."
-                      className="resize-none"
-                      rows={3}
+                      rows={2}
+                      placeholder="e.g. Fever - spoke with parent."
+                      value={reasonNotes}
+                      onChange={(e) => setReasonNotes(e.target.value)}
+                      className="text-xs rounded-xl mt-1"
                     />
                   </div>
-                </div>
 
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleChangeAttendance}
-                    disabled={!selectedStatus || !reason.trim()}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    Save Change
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            {/* Change History */}
-            {markedHistory.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Attendance Change History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {markedHistory.map((change) => (
-                      <div key={change.id} className="p-3 rounded-lg border text-sm">
-                        <p className="font-medium">{change.studentName}</p>
-                        <div className="flex items-center gap-2 mt-1 text-muted-foreground">
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {change.previousStatus}
-                          </Badge>
-                          <span>→</span>
-                          <Badge className="text-xs capitalize">{change.newStatus}</Badge>
-                        </div>
-                        <p className="mt-1 text-xs">Reason: {change.reason}</p>
-                        <p className="text-xs text-muted-foreground">{change.timestamp}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                  <DialogFooter className="pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveStudentForReason(null)}
+                      className="rounded-xl text-xs"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs shadow-xs"
+                    >
+                      Save Absence
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </>
             )}
-          </div>
-        </div>
-      </main>
-    </div>
-  )
+          </DialogContent>
+        </Dialog>
+
+      </div>
+    </Layout>
+  );
 }
